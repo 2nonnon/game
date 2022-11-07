@@ -1,7 +1,7 @@
 import qrcode from 'qrcode-generator'
 import type { FunctionComponent } from 'react'
 import React, { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import Modal from '../../components/Modal'
 
 const ErrorCorrectionLevel = {
   L: 'L(7%)',
@@ -35,33 +35,37 @@ interface Fields {
 
 function Confirm({ setModal }: { setModal: React.Dispatch<React.SetStateAction<boolean>> }) {
   return (
-    <div className='p-5 bg-white shadow-md rounded-xl'>
-      <div>Please confirm you want to delete this record.</div>
-      <div className='flex justify-evenly items-center mt-3'>
-        <button onClick={(event) => {
+    <div className='p-4 bg-white shadow-md rounded-xl text-sm w-[300px] min-h-[120px] flex flex-col justify-between gap-2'>
+      <div>The size of the generated QR code will exceed the limit.</div>
+      <div className='flex justify-end items-center'>
+        <button className='border rounded-md p-1' onClick={(event) => {
           event.preventDefault()
           setModal(false)
-        }}>Cancel</button>
+        }}>Confirm</button>
       </div>
     </div>
   )
 }
 
-const Modal: FunctionComponent<{ children: any }> = ({ children }) => {
-  const modalRoot = document.body
-  const elRef = useRef<HTMLDivElement | null>(null)
-  if (!elRef.current)
-    elRef.current = document.createElement('div')
-
-  useEffect(() => {
-    modalRoot!.appendChild(elRef.current!)
-    return () => { modalRoot!.removeChild(elRef.current!) }
-  }, [])
-
-  return createPortal(<div className='fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2'>{children}</div>, elRef.current)
+const FormItem: FunctionComponent<{ name: string; children: any }> = ({ name, children }) => {
+  return (
+    <div className='flex gap-1'>
+      <div className='flex-1 text-right'><label htmlFor={name}>{name}:</label></div>
+      <div className='flex-1'>
+        {children}
+      </div>
+    </div>
+  )
 }
 
-const Panel = ({ formData, setFormData, generateQRCode, setModal }: { formData: Fields; setFormData: React.Dispatch<React.SetStateAction<Fields>>; generateQRCode: () => void;setModal: React.Dispatch<React.SetStateAction<boolean>> }) => {
+interface PanelParams {
+  formData: Fields
+  setFormData: React.Dispatch<React.SetStateAction<Fields>>
+  generateQRCode: () => void
+  setModal: React.Dispatch<React.SetStateAction<boolean>>
+}
+
+const Panel = ({ formData, setFormData, generateQRCode, setModal }: PanelParams) => {
   const updateFormData = (data: Partial<Fields>) => {
     setFormData(Object.assign({}, formData, data))
   }
@@ -79,61 +83,55 @@ const Panel = ({ formData, setFormData, generateQRCode, setModal }: { formData: 
   })
 
   return (
-    <form>
-      <fieldset>
-        <legend>Choose your favorite monster</legend>
-        <label>
-        TypeNumber:
-          <select name="TypeNumber" value={formData.typeNumber} onChange={(event) => {
+    <form className='max-w-full min-w-fit w-[500px]'>
+      <fieldset className='flex flex-col gap-1 p-2 relative border rounded border-neutral-900'>
+        <legend className='mx-auto'>QR Code Generator</legend>
+        <FormItem name='TypeNumber'>
+          <select id='TypeNumber' name="TypeNumber" value={formData.typeNumber} onChange={(event) => {
             updateFormData({ typeNumber: +event.target.value as TypeNumber })
           }}>
             <option value={0}>Auto Detect</option>
             {Array.from({ length: 40 }).map((_, i) => <option value={i + 1} key={i + 1}>{i + 1}</option>)}
           </select>
-        </label>
-        <label>
-        ErrorCorrectionLevel:
-          <select name="ErrorCorrectionLevel" value={formData.errorCorrectionLevel} onChange={(event) => {
+        </FormItem>
+        <FormItem name='ErrorCorrectionLevel'>
+          <select id="ErrorCorrectionLevel" name="ErrorCorrectionLevel" value={formData.errorCorrectionLevel} onChange={(event) => {
             updateFormData({ errorCorrectionLevel: event.target.value as ErrorCorrectionLevel })
           }}>
             {Object.entries(ErrorCorrectionLevel).map(item => <option value={item[0]} key={item[0]}>{item[1]}</option>)}
           </select>
-        </label>
-        <label>
-        Mode:
-          <select name="Mode" value={formData.mode} onChange={(event) => {
+        </FormItem>
+        <FormItem name='Mode'>
+          <select id="Mode" name="Mode" value={formData.mode} onChange={(event) => {
             updateFormData({ mode: event.target.value as Mode })
           }}>
             {Object.entries(Mode).map(item => <option value={item[0]} key={item[0]}>{item[1]}</option>)}
           </select>
-        </label>
-        <label>
-        Multibyte:
-          <select name="Multibyte" value={formData.multibyte} onChange={(event) => {
+        </FormItem>
+        <FormItem name='Multibyte'>
+          <select id="Multibyte" name="Multibyte" value={formData.multibyte} onChange={(event) => {
             updateFormData({ multibyte: event.target.value as MultibyteType })
           }}>
             {Object.entries(Multibyte).map(item => <option value={item[0]} key={item[0]}>{item[1]}</option>)}
           </select>
-        </label>
-        <label>
-        CellSize:
-          <input type={'number'}name="CellSize" value={formData.cellSize} onChange={(event) => {
-            console.log(max)
-            if (+event.target.value > max) {
+        </FormItem>
+        <FormItem name='CellSize'>
+          <input id="CellSize" type={'number'} name="CellSize" value={formData.cellSize} onChange={(event) => {
+            const value = +event.target.value
+            if (value > max || value < 0) {
               setModal(true)
               return
             }
             updateFormData({ cellSize: event.target.value as unknown as number })
           }}>
           </input>
-        </label>
-        <label>
-        Content:
-          <textarea value={formData.content} onChange={(event) => {
+        </FormItem>
+        <FormItem name='Content'>
+          <textarea id="Content" rows={5} value={formData.content} onChange={(event) => {
             updateFormData({ content: event.target.value })
           }}></textarea>
-        </label>
-        <button onClick={(event) => {
+        </FormItem>
+        <button className='border-2 rounded-md p-1' onClick={(event) => {
           event.preventDefault()
           generateQRCode()
         }}>Update</button>
@@ -178,7 +176,7 @@ const QrcodeGenerator = () => {
   return (
     <>
       {modal ? <Modal><Confirm setModal={setModal} /></Modal> : null}
-      <div className='flex flex-col'>
+      <div className='flex flex-col gap-4 items-center text-sm p-4'>
         <Panel formData={formData} setFormData={setFormData} generateQRCode={generateQRCode} setModal={setModal}></Panel>
         <canvas ref={target} className="h-[200px] w-[200px]" width={200} height={200}></canvas>
       </div>
