@@ -5,11 +5,16 @@ import {
   createBrowserRouter,
 } from 'react-router-dom'
 import './index.css'
+import Battleship from './views/Battleship'
 import QrcodeGenerator from './views/QRCode'
 
 const router = createBrowserRouter([
   {
     path: '/',
+    element: <Battleship/>,
+  },
+  {
+    path: '/qrcode',
     element: <QrcodeGenerator/>,
   },
   // {
