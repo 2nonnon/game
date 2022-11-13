@@ -4,7 +4,7 @@ import Modal from '../../components/Modal'
 const BattleContext = createContext<InstanceType<typeof Ocean> | null>(null)
 
 const NumToLetter = (num: number) => String.fromCharCode(64 + num)
-// const LetterToNum = (letter: string) => letter.charCodeAt(0) - 64
+const LetterToNum = (letter: string) => letter.charCodeAt(0) - 64
 
 enum ShipEnum {
   CARRIER = 'Carrier',
@@ -92,8 +92,10 @@ class ShipItem {
   }
 }
 
+type OceanItemStatus = 'miss' | ShipItemStatus | ShipStatus
+
 class Ocean {
-  public status: number[][] = []
+  public status: OceanItemStatus[][] = []
   public ships: Ship[] = []
 
   constructor(public size: number) {
@@ -103,7 +105,7 @@ class Ocean {
 
   init() {
     const arr = Array.from({ length: this.size + 1 })
-    this.status = arr.map(_ => arr.map(_ => 0))
+    this.status = arr.map(_ => arr.map(_ => 'hidden'))
   }
 
   generateShip(shipType: ShipEnum, status: ShipStatus = 'hidden') {
@@ -116,8 +118,8 @@ class Ocean {
       const p = Math.floor(Math.random() * available.length)
       const [x, y] = available[p]
       const positions = Array.from({ length: size }).map((_, i) => {
-        this.updateOcaenStatus([x, y + i])
-        return `${NumToLetter(x)}-${y + i}`
+        this.updateOcaenStatus([x, y + i + 1], status)
+        return `${NumToLetter(x)}-${y + i + 1}`
       })
       const ship = new Ship(shipType, size, positions, status)
       this.ships.push(ship)
@@ -128,8 +130,8 @@ class Ocean {
       const p = Math.floor(Math.random() * available.length)
       const [x, y] = available[p]
       const positions = Array.from({ length: size }).map((_, i) => {
-        this.updateOcaenStatus([x + i, y])
-        return `${NumToLetter(x + i)}-${y}`
+        this.updateOcaenStatus([x + i + 1, y], status)
+        return `${NumToLetter(x + i + 1)}-${y}`
       })
       const ship = new Ship(shipType, size, positions, status)
       this.ships.push(ship)
@@ -137,8 +139,8 @@ class Ocean {
     }
   }
 
-  updateOcaenStatus([x, y]: [number, number]) {
-    this.status[x][y] = 1
+  updateOcaenStatus([x, y]: [number, number], status: OceanItemStatus) {
+    this.status[x][y] = status
   }
 
   getHorizontalAvailable(shipSize: number) {
@@ -146,7 +148,9 @@ class Ocean {
     for (let x = 1; x <= this.size; x++) {
       for (let y = 1; y <= this.size; y++) {
         const p = this.status[x][y + shipSize]
-        if (typeof p !== 'undefined' && p !== 1 && this.status[x][y] !== 1)
+        const road = Array.from({ length: shipSize }).map((_, i) => `${NumToLetter(x)}-${y + i}`)
+        const has = this.ships.some(ship => ship.positions.some(p => road.includes(p)))
+        if (typeof p !== 'undefined' && !has)
           result.push([x, y])
 
         else if (typeof p === 'undefined')
@@ -161,7 +165,9 @@ class Ocean {
     for (let y = 1; y <= this.size; y++) {
       for (let x = 1; x <= this.size; x++) {
         const p = this.status[x + shipSize]?.[y]
-        if (typeof p !== 'undefined' && p !== 1 && this.status[x][y] !== 1)
+        const road = Array.from({ length: shipSize }).map((_, i) => `${NumToLetter(x + i)}-${y}`)
+        const has = this.ships.some(ship => ship.positions.some(p => road.includes(p)))
+        if (typeof p !== 'undefined' && !has)
           result.push([x, y])
 
         else if (typeof p === 'undefined')
@@ -173,6 +179,37 @@ class Ocean {
 
   blackSheepWall() {
     this.ships.forEach(_ => _.updateStatus('visible'))
+    this.refreshOceanStatus()
+  }
+
+  refreshOceanStatus() {
+    this.ships.forEach((ship) => {
+      ship.items.forEach((item) => {
+        const [x, y] = item.position.split('-')
+        this.updateOcaenStatus([LetterToNum(x), +y], item.status)
+      })
+    })
+  }
+
+  handleShotted(position: string) {
+    const [x, y] = position.split('-')
+    const ship = this.ships.find(ship => ship.positions.includes(position))
+    const shipItem = ship?.items.find(item => item.position === position)
+
+    if (!shipItem) { this.status[LetterToNum(x)][+y] = 'miss' }
+    else {
+      shipItem.update('hitted')
+      if (ship?.status === 'sinked') {
+        this.status[LetterToNum(x)][+y] = 'sinked'
+        return `Sink, ${ship.type}`
+      }
+      else {
+        this.status[LetterToNum(x)][+y] = 'hitted'
+        return `Hit, ${ship?.type}`
+      }
+    }
+
+    return 'Miss'
   }
 }
 
@@ -180,34 +217,31 @@ const Square = ({ className, children }: { className?: string; children?: any })
   return <div className={`flex justify-center items-center h-6 w-6 border-t border-l border-gray-200 text-[16px] ${className}`}>{children}</div>
 }
 
-const Item = ({ className, position, setModal, setContent }: { className?: string; position: string; setModal: React.Dispatch<React.SetStateAction<boolean>>; setContent: React.Dispatch<React.SetStateAction<string>> }) => {
+const Item = ({ status, className, position, setStatus, setContent, setModal }: {
+  className?: string
+  status: OceanItemStatus
+  position: string
+  setModal: React.Dispatch<React.SetStateAction<boolean>>
+  setContent: React.Dispatch<React.SetStateAction<string>>
+  setStatus: React.Dispatch<React.SetStateAction<OceanItemStatus[][]>>
+}) => {
   const ocean = useContext(BattleContext)!
-  const ship = ocean.ships.find(ship => ship.positions.includes(position))
-  const shipItem = ship?.items.find(item => item.position === position)
-  const statusInit = shipItem?.status ? shipItem.status : 'hidden'
-
-  const [status, setStatus] = useState<BaseStatus | ShipItemStatus>(statusInit)
 
   const handleShotted = () => {
     if (status !== 'hidden')
       return
-    let content = 'Miss.'
-    if (shipItem) {
-      setStatus(shipItem.update('hitted'))
 
-      if (ship?.status === 'sinked')
-        content = `Sink, ${ship.type}`
-      else
-        content = `Hit, ${ship?.type}`
-    }
-    else { setStatus('visible') }
-    setContent(content)
+    const result = ocean.handleShotted(position)
+    setStatus([...ocean.status])
+    setContent(result)
     setModal(false)
   }
   const statusMap = {
-    hitted: 'X',
-    visible: shipItem ? '船' : 'O',
+    hitted: 'H',
+    visible: '船',
     hidden: '',
+    miss: 'M',
+    sinked: 'S',
   }
 
   return <div className={`flex justify-center items-center h-6 w-6 border-t border-l border-gray-200 text-[16px] cursor-pointer ${className}`} onClick={handleShotted}>{statusMap[status]}</div>
@@ -232,23 +266,23 @@ const initPlayer = (() => {
 
 const Battleship = () => {
   const ocean = initPlayer(10)
+  const [status, setStatus] = useState(ocean.status)
 
   const [modal, setModal] = useState(false)
   const [content, setContent] = useState('')
-  const [count, setCount] = useState(0)
-
   return (<>
     {modal ? <Modal><Confirm content={content} setModal={setModal} /></Modal> : null}
     <BattleContext.Provider value={ocean}>
       <div className="flex justify-center items-center">
         <div onClick={() => {
           ocean.blackSheepWall()
-          setCount(count + 1)
-        }}>Black sheep wall{count}</div>
+          setStatus([...ocean.status])
+          console.log(status)
+        }}>Black sheep wall</div>
         <div className="grid grid-cols-11 w-fit select-none">
           {
-            Array.from({ length: ocean.size + 1 }).map((_, row) => {
-              return Array.from({ length: ocean.size + 1 }).map((_, col) => {
+            status.map((_, row) => {
+              return _.map((_, col) => {
                 if (!row && !col) { return <div key={`${row}-${col}`}></div> }
                 else if (!row && col) { return <Square className={col === ocean.size ? 'border-r' : ''} key={`${row}-${col}`}>{col}</Square> }
                 else if (row && !col) { return <Square className={row === ocean.size ? 'border-b' : ''} key={`${row}-${col}`}>{ NumToLetter(row) }</Square> }
@@ -263,7 +297,7 @@ const Battleship = () => {
                     className += 'border-r-gray-700 border-r-2 '
                   if (row === ocean.size)
                     className += 'border-b-gray-700 border-b-2 '
-                  return <Item key={key} position={key} className={className} setModal={setModal} setContent={setContent}></Item>
+                  return <Item status={_} key={key} position={key} className={className} setModal={setModal} setContent={setContent} setStatus={setStatus}></Item>
                 }
               })
             })
