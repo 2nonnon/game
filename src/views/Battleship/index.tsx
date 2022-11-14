@@ -32,27 +32,37 @@ const ShipTypes = {
   },
 }
 
-type BaseStatus = 'visible' | 'hidden'
+type Coordinate = [number, number]
 
-type ShipStatus = BaseStatus | 'sinked'
+type BaseStatus = 'Visible' | 'Hidden'
 
-type ShipItemStatus = BaseStatus | 'hitted'
+type ShipStatus = BaseStatus | 'Sink'
+
+type ShipItemStatus = ShipStatus | 'Hit'
 
 class Ship {
-  public items: ShipItem[] = []
-
-  constructor(public type: ShipEnum, public size: number, public positions: string[], public status: ShipStatus = 'hidden') {
+  constructor(public type: ShipEnum, public size: number, public items: InstanceType<typeof ShipItem>[], public status: ShipStatus = 'Hidden', public positions: string[] = []) {
     this.type = type
     this.size = size
     this.status = status
     this.positions = positions
-    this.init()
+    if (positions.length > 0) { this.init(positions) }
+    else {
+      this.items = items.map((item) => {
+        this.positions.push(item.position)
+        item.ship = this
+        return item
+      })
+    }
   }
 
-  init() {
-    const status = this.status === 'sinked' ? 'hitted' : this.status
-    this.items = this.positions.map(_ => new ShipItem(_, status),
-    )
+  init(positions: string[]) {
+    const status = this.status === 'Sink' ? 'Hit' : this.status
+    this.items = positions.map((_) => {
+      const item = new ShipItem(_, status)
+      item.ship = this
+      return item
+    })
   }
 
   updateItemStatus(position: string, status: ShipItemStatus) {
@@ -61,27 +71,29 @@ class Ship {
   }
 
   refreshStatus() {
-    if (this.items.every(_ => _.status === 'hitted'))
-      this.status = 'sinked'
+    if (this.items.every(_ => _.status === 'Hit'))
+      this.updateStatus('Sink')
   }
 
   updateStatus(status: ShipStatus) {
     this.status = status
-    if (status === 'hidden' || status === 'visible') {
+    if (status === 'Hidden' || status === 'Visible') {
       this.items.forEach((_) => {
-        if (_.status !== 'hitted')
+        if (_.status !== 'Hit' && _.status !== 'Sink')
           _.update(status)
       })
     }
     else {
       this.items.forEach((_) => {
-        _.update('hitted')
+        _.update('Sink')
       })
     }
   }
 }
 
 class ShipItem {
+  ship: InstanceType<typeof Ship> | null = null
+
   constructor(public position: string, public status: ShipItemStatus) {
     this.position = position
     this.status = status
@@ -90,12 +102,32 @@ class ShipItem {
   update(status: ShipItemStatus) {
     return this.status = status
   }
+
+  handleShotted() {
+    this.status = 'Hit'
+    this.ship?.refreshStatus()
+    return `${this.status}, ${this.ship?.type}`
+  }
 }
 
-type OceanItemStatus = 'miss' | ShipItemStatus | ShipStatus
+class OceanItem {
+  constructor(public position: string, public status: OceanItemStatus = 'Hidden') {
+    this.position = position
+    this.status = status
+  }
+
+  handleShotted() {
+    this.status = 'Miss'
+    return 'Miss.'
+  }
+}
+
+type OceanItemStatus = 'Miss' | 'Hidden'
+
+type GridItem = InstanceType<typeof OceanItem> | InstanceType<typeof ShipItem>
 
 class Ocean {
-  public status: OceanItemStatus[][] = []
+  public items: GridItem[][] = []
   public ships: Ship[] = []
 
   constructor(public size: number) {
@@ -105,111 +137,80 @@ class Ocean {
 
   init() {
     const arr = Array.from({ length: this.size + 1 })
-    this.status = arr.map(_ => arr.map(_ => 'hidden'))
+    this.items = arr.map((_, x) => arr.map((_, y) => new OceanItem(`${NumToLetter(x)}-${y}`)))
   }
 
-  generateShip(shipType: ShipEnum, status: ShipStatus = 'hidden') {
-    const position = Math.random() > 0.5 ? 'x' : 'y'
-    // const point1 = Math.floor(Math.random() * oceanSize) + 1
-    // const point2 = Math.floor(Math.random() * (oceanSize - shipSize)) + 1
+  updateOcaenStatus([x, y]: Coordinate, item: GridItem) {
+    this.items[x][y] = item
+  }
+
+  generateShip(shipType: ShipEnum, status: ShipStatus = 'Hidden') {
+    const direction = Math.random() > 0.5 ? 'x' : 'y'
     const size = ShipTypes[shipType].size
-    if (position === 'x') {
-      const available = this.getHorizontalAvailable(size)
-      const p = Math.floor(Math.random() * available.length)
-      const [x, y] = available[p]
-      const positions = Array.from({ length: size }).map((_, i) => {
-        this.updateOcaenStatus([x, y + i + 1], status)
-        return `${NumToLetter(x)}-${y + i + 1}`
-      })
-      const ship = new Ship(shipType, size, positions, status)
-      this.ships.push(ship)
-      return ship
-    }
-    else {
-      const available = this.getVerticalAvailable(size)
-      const p = Math.floor(Math.random() * available.length)
-      const [x, y] = available[p]
-      const positions = Array.from({ length: size }).map((_, i) => {
-        this.updateOcaenStatus([x + i + 1, y], status)
-        return `${NumToLetter(x + i + 1)}-${y}`
-      })
-      const ship = new Ship(shipType, size, positions, status)
-      this.ships.push(ship)
-      return ship
-    }
+
+    const available = direction === 'x' ? this.getHorizontalAvailable(size) : this.getVerticalAvailable(size)
+    const start = available[Math.floor(Math.random() * available.length)]
+    return this.setShip(shipType, start, direction, status)
   }
 
-  updateOcaenStatus([x, y]: [number, number], status: OceanItemStatus) {
-    this.status[x][y] = status
+  setShip(shipType: ShipEnum, start: Coordinate, direction: 'x' | 'y', status: ShipStatus = 'Hidden') {
+    const shipSize = ShipTypes[shipType].size
+    const [x, y] = start
+    const shipItems = direction === 'x'
+      ? Array.from({ length: shipSize }).map((_, i) => {
+        const shipItem = new ShipItem(`${NumToLetter(x)}-${y + i}`, 'Hidden')
+        this.updateOcaenStatus([x, y + i], shipItem)
+        return shipItem
+      })
+      : Array.from({ length: shipSize }).map((_, i) => {
+        const shipItem = new ShipItem(`${NumToLetter(x + i)}-${y}`, 'Hidden')
+        this.updateOcaenStatus([x + i, y], shipItem)
+        return shipItem
+      })
+    const ship = new Ship(shipType, shipSize, shipItems, status)
+    this.ships.push(ship)
+    return ship
   }
 
   getHorizontalAvailable(shipSize: number) {
-    const result = [] as [number, number][]
+    const result = [] as Coordinate[]
     for (let x = 1; x <= this.size; x++) {
       for (let y = 1; y <= this.size; y++) {
-        const p = this.status[x][y + shipSize]
-        const road = Array.from({ length: shipSize }).map((_, i) => `${NumToLetter(x)}-${y + i}`)
-        const has = this.ships.some(ship => ship.positions.some(p => road.includes(p)))
-        if (typeof p !== 'undefined' && !has)
-          result.push([x, y])
-
-        else if (typeof p === 'undefined')
+        if (y + shipSize - 1 > this.size)
           break
+
+        const road = Array.from({ length: shipSize }).map((_, i) => `${NumToLetter(x)}-${y + i}`)
+
+        if (!this.ships.some(ship => ship.positions.some(p => road.includes(p))))
+          result.push([x, y])
       }
     }
     return result
   }
 
   getVerticalAvailable(shipSize: number) {
-    const result = [] as [number, number][]
+    const result = [] as Coordinate[]
     for (let y = 1; y <= this.size; y++) {
       for (let x = 1; x <= this.size; x++) {
-        const p = this.status[x + shipSize]?.[y]
-        const road = Array.from({ length: shipSize }).map((_, i) => `${NumToLetter(x + i)}-${y}`)
-        const has = this.ships.some(ship => ship.positions.some(p => road.includes(p)))
-        if (typeof p !== 'undefined' && !has)
-          result.push([x, y])
-
-        else if (typeof p === 'undefined')
+        if (x + shipSize - 1 > this.size)
           break
+
+        const road = Array.from({ length: shipSize }).map((_, i) => `${NumToLetter(x + i)}-${y}`)
+
+        if (!this.ships.some(ship => ship.positions.some(p => road.includes(p))))
+          result.push([x, y])
       }
     }
     return result
   }
 
   blackSheepWall() {
-    this.ships.forEach(_ => _.updateStatus('visible'))
-    this.refreshOceanStatus()
-  }
-
-  refreshOceanStatus() {
-    this.ships.forEach((ship) => {
-      ship.items.forEach((item) => {
-        const [x, y] = item.position.split('-')
-        this.updateOcaenStatus([LetterToNum(x), +y], item.status)
-      })
-    })
+    this.ships.forEach(_ => _.updateStatus('Visible'))
   }
 
   handleShotted(position: string) {
     const [x, y] = position.split('-')
-    const ship = this.ships.find(ship => ship.positions.includes(position))
-    const shipItem = ship?.items.find(item => item.position === position)
-
-    if (!shipItem) { this.status[LetterToNum(x)][+y] = 'miss' }
-    else {
-      shipItem.update('hitted')
-      if (ship?.status === 'sinked') {
-        this.status[LetterToNum(x)][+y] = 'sinked'
-        return `Sink, ${ship.type}`
-      }
-      else {
-        this.status[LetterToNum(x)][+y] = 'hitted'
-        return `Hit, ${ship?.type}`
-      }
-    }
-
-    return 'Miss'
+    return this.items[LetterToNum(x)][+y].handleShotted()
   }
 }
 
@@ -217,34 +218,35 @@ const Square = ({ className, children }: { className?: string; children?: any })
   return <div className={`flex justify-center items-center h-6 w-6 border-t border-l border-gray-200 text-[16px] ${className}`}>{children}</div>
 }
 
-const Item = ({ status, className, position, setStatus, setContent, setModal }: {
+const Item = ({ item, className, position, setItems, setContent, setModal }: {
   className?: string
-  status: OceanItemStatus
+  item: GridItem
   position: string
   setModal: React.Dispatch<React.SetStateAction<boolean>>
   setContent: React.Dispatch<React.SetStateAction<string>>
-  setStatus: React.Dispatch<React.SetStateAction<OceanItemStatus[][]>>
+  setItems: React.Dispatch<React.SetStateAction<GridItem[][]>>
 }) => {
   const ocean = useContext(BattleContext)!
 
   const handleShotted = () => {
-    if (status !== 'hidden')
+    if (item.status !== 'Hidden')
       return
 
     const result = ocean.handleShotted(position)
-    setStatus([...ocean.status])
+    console.log(item.status)
+    setItems([...ocean.items])
     setContent(result)
-    setModal(false)
+    setModal(true)
   }
   const statusMap = {
-    hitted: 'H',
-    visible: '船',
-    hidden: '',
-    miss: 'M',
-    sinked: 'S',
+    Hit: 'H',
+    Visible: '船',
+    Hidden: '',
+    Miss: 'M',
+    Sink: 'S',
   }
 
-  return <div className={`flex justify-center items-center h-6 w-6 border-t border-l border-gray-200 text-[16px] cursor-pointer ${className}`} onClick={handleShotted}>{statusMap[status]}</div>
+  return <div className={`flex justify-center items-center h-6 w-6 border-t border-l border-gray-200 text-[16px] cursor-pointer ${className}`} onClick={handleShotted}>{statusMap[item.status]}</div>
 }
 
 const initPlayer = (() => {
@@ -259,14 +261,14 @@ const initPlayer = (() => {
     ocean.generateShip(ShipEnum.CRUISER)
     ocean.generateShip(ShipEnum.DESTROYER)
     ocean.generateShip(ShipEnum.SUBMARINE)
-    console.log(ocean.status)
+    console.log(ocean.items)
     return ocean
   }
 })()
 
 const Battleship = () => {
   const ocean = initPlayer(10)
-  const [status, setStatus] = useState(ocean.status)
+  const [items, setItems] = useState(ocean.items)
 
   const [modal, setModal] = useState(false)
   const [content, setContent] = useState('')
@@ -276,12 +278,11 @@ const Battleship = () => {
       <div className="flex justify-center items-center">
         <div onClick={() => {
           ocean.blackSheepWall()
-          setStatus([...ocean.status])
-          console.log(status)
+          setItems([...ocean.items])
         }}>Black sheep wall</div>
         <div className="grid grid-cols-11 w-fit select-none">
           {
-            status.map((_, row) => {
+            items.map((_, row) => {
               return _.map((_, col) => {
                 if (!row && !col) { return <div key={`${row}-${col}`}></div> }
                 else if (!row && col) { return <Square className={col === ocean.size ? 'border-r' : ''} key={`${row}-${col}`}>{col}</Square> }
@@ -297,7 +298,7 @@ const Battleship = () => {
                     className += 'border-r-gray-700 border-r-2 '
                   if (row === ocean.size)
                     className += 'border-b-gray-700 border-b-2 '
-                  return <Item status={_} key={key} position={key} className={className} setModal={setModal} setContent={setContent} setStatus={setStatus}></Item>
+                  return <Item item={_} key={key} position={key} className={className} setModal={setModal} setContent={setContent} setItems={setItems}></Item>
                 }
               })
             })
