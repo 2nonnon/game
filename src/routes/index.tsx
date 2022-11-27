@@ -1,6 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom'
 import Battleship from '../views/Battleship'
-import DnDPalyground from '../views/DnDPlayground'
+import DnDPlayground from '../views/DnDPlayground'
 import HomePage from '../views/HomePage'
 import QrcodeGenerator from '../views/QRCode'
 
@@ -21,9 +21,9 @@ const router = createBrowserRouter([
     element: <Battleship />,
   },
   {
-    path: '/dndpalyground',
-    id: 'DnDPalyground',
-    element: <DnDPalyground />,
+    path: '/dndplayground',
+    id: 'DnDPlayground',
+    element: <DnDPlayground />,
   },
   // {
   //   path: '/',
