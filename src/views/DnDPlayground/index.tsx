@@ -9,6 +9,22 @@ import NestedDroppable from './NestedDroppable'
 import RealDrop from './RealDrop'
 import SingleTarget from './SingleTarget'
 import Sortable from './Sortable'
+import { Container as C1 } from './Dustbin/SingleTarget/Container'
+import { Container as C2 } from './Dustbin/WithinAnIframe/Container'
+import { Container as C3 } from './Dustbin/CopyOrMove/Container'
+import { Container as C4 } from './Dustbin/MultipleTargets/Container'
+import { Container as C5 } from './Dustbin/StressTest/Container'
+import { Example as C6 } from './DragAround/Naive/Example'
+import { Example as C7 } from './DragAround/CustomDragLayer/Example'
+import { Container as C8 } from './Nesting/DragSources/Container'
+import { Container as C9 } from './Nesting/DropTargets/Container'
+import { Container as C10 } from './Sortable/Simple/Container'
+import { Container as C11 } from './Sortable/CancelOnDropOutside/Container'
+// import { Container as C12 } from './Sortable/StressTest/Container'
+import { Container as C13 } from './Customize/DropEffects/Container'
+import { Container as C14 } from './Customize/HandlesAndPreviews/Container'
+import { Container as C15 } from './OtherCases/NativeFiles/Container'
+import { Container as C16 } from './OtherCases/NativeHtml/Container'
 
 const DnDPlayground = () => {
   return (
@@ -40,6 +56,22 @@ const DnDPlayground = () => {
           <Container title='Sortable'>
             <Sortable></Sortable>
           </Container>
+          <C1></C1>
+          <C2></C2>
+          <C3></C3>
+          <C4></C4>
+          <C5></C5>
+          <C6></C6>
+          <C7></C7>
+          <C8></C8>
+          <C9></C9>
+          <C10></C10>
+          <C11></C11>
+          {/* <C12></C12> */}
+          <C13></C13>
+          <C14></C14>
+          <C15></C15>
+          <C16></C16>
         </div>
       </DndProvider>
     </div>
