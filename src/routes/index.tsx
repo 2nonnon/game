@@ -1,6 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom'
 import HomePage from '../views/HomePage'
-import QrcodeGenerator from '../views/QRCode'
+import MineSweeper from '../views/MineSweeper'
 
 const router = createBrowserRouter([
   {
@@ -8,11 +8,11 @@ const router = createBrowserRouter([
     id: 'HomePage',
     element: <HomePage />,
   },
-  // {
-  //   path: '/qrcode',
-  //   id: 'QrcodeGenerator',
-  //   element: <QrcodeGenerator />,
-  // },
+  {
+    path: '/qrcode',
+    id: 'MineSweeper',
+    element: <MineSweeper />,
+  },
 ])
 
 export default router
