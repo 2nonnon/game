@@ -8,11 +8,11 @@ const router = createBrowserRouter([
     id: 'HomePage',
     element: <HomePage />,
   },
-  {
-    path: '/qrcode',
-    id: 'QrcodeGenerator',
-    element: <QrcodeGenerator />,
-  },
+  // {
+  //   path: '/qrcode',
+  //   id: 'QrcodeGenerator',
+  //   element: <QrcodeGenerator />,
+  // },
 ])
 
 export default router
