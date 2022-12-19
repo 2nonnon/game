@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react'
 import { checkWin, generateMine, handleClickBlock, handleClickMine, handleToggleFlag, initMineSweeper } from './helper'
-import type { Coordinate, IBlock, ILevel } from './type'
+import type { Coordinate, IBlock } from './type'
 import { BlockType, GameState, Level } from './type'
 
 import useMineSweeper from './useMineSweeper'
@@ -10,15 +10,14 @@ const MineSweeperContext = createContext<ReturnType<typeof useMineSweeper> | nul
 interface BlockParam {
   block: IBlock
   coordinate: Coordinate
-  level: ILevel
 }
 
-const Block = ({ block, coordinate, level }: BlockParam) => {
-  const { mineSweeper, setMineSweeper, gameState, setGameState, flagCount, setFlagCount } = useContext(MineSweeperContext)!
+const Block = ({ block, coordinate }: BlockParam) => {
+  const { mineSweeper, setMineSweeper, gameState, setGameState, flagCount, setFlagCount, gameLevel } = useContext(MineSweeperContext)!
 
   const handleClick: React.MouseEventHandler<HTMLDivElement> = () => {
     if (gameState === GameState.PRE) {
-      const mines = generateMine(level.size, level.num, coordinate)
+      const mines = generateMine(gameLevel.size, gameLevel.num, coordinate)
       setGameState(GameState.GOING)
       setMineSweeper(handleClickBlock(initMineSweeper(mineSweeper, mines), coordinate))
     }
@@ -35,7 +34,7 @@ const Block = ({ block, coordinate, level }: BlockParam) => {
   const handleRightClick: React.MouseEventHandler<HTMLDivElement> = (e) => {
     e.preventDefault()
     if (gameState === GameState.PRE) {
-      const mines = generateMine(level.size, level.num, coordinate)
+      const mines = generateMine(gameLevel.size, gameLevel.num, coordinate)
       setGameState(GameState.GOING)
       setFlagCount(flagCount + 1)
       setMineSweeper(handleToggleFlag(initMineSweeper(mineSweeper, mines), coordinate))
@@ -45,7 +44,7 @@ const Block = ({ block, coordinate, level }: BlockParam) => {
         setFlagCount(flagCount - 1)
         setMineSweeper(handleToggleFlag(mineSweeper, coordinate))
       }
-      else if (flagCount < level.num) {
+      else if (flagCount < gameLevel.num) {
         setFlagCount(flagCount + 1)
         const nextState = handleToggleFlag(mineSweeper, coordinate)
         if (checkWin(nextState))
@@ -69,16 +68,22 @@ const Block = ({ block, coordinate, level }: BlockParam) => {
 }
 
 const MineSweeper = () => {
-  const mineSweeperInfo = useMineSweeper(Level.easy.size)
+  const mineSweeperInfo = useMineSweeper({ level: Level.easy, state: GameState.PRE })
 
   return (
     <>
       <MineSweeperContext.Provider value={mineSweeperInfo}>
-        <div className='grid place-content-center h-screen select-none'>
-          <div><span>{mineSweeperInfo.gameState}</span><span>刷新</span></div>
-          <div className='grid grid-cols-9 gap-1 w-fit p-1 bg-gray-100'>
+        <div className='grid place-content-center min-h-screen select-none p-10'>
+          <div>
+            <span>{mineSweeperInfo.gameState}</span>
+            <span onClick={() => { mineSweeperInfo.setGameState(GameState.PRE); mineSweeperInfo.setGameLevel(Level.easy) }}>初级</span>
+            <span onClick={() => { mineSweeperInfo.setGameState(GameState.PRE); mineSweeperInfo.setGameLevel(Level.medieum) }}>中级</span>
+            <span onClick={() => { mineSweeperInfo.setGameState(GameState.PRE); mineSweeperInfo.setGameLevel(Level.hard) }}>高级</span>
+            <span onClick={() => { mineSweeperInfo.setGameState(GameState.PRE) }}>刷新</span>
+          </div>
+          <div className={`grid grid-cols-[repeat(${mineSweeperInfo.gameLevel.size[1]},1fr)] gap-1 w-fit p-1 bg-gray-100`}>
             {mineSweeperInfo.mineSweeper.map((row, y) => row.map((block, x) => {
-              return (<Block key={y * row.length + x} block={block} coordinate={[y, x]} level={Level.easy}></Block>)
+              return (<Block key={y * row.length + x} block={block} coordinate={[y, x]}></Block>)
             }))}
           </div>
         </div>

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import type { IBlock, MineSweeperType } from './type'
+import { useEffect, useState } from 'react'
+import type { IBlock, ILevel, MineSweeperType } from './type'
 import { BlockType, GameState } from './type'
 
 const block: IBlock = {
@@ -9,13 +9,28 @@ const block: IBlock = {
   flag: false,
 }
 
-const useMineSweeper = ([row, col]: [number, number]) => {
+interface mineSweeperOption {
+  level: ILevel
+  state: GameState
+}
+
+const useMineSweeper = ({ level, state }: mineSweeperOption) => {
+  const [gameLevel, setGameLevel] = useState(level)
+  const [row, col] = gameLevel.size
   const init = Array.from({ length: row }).map(_ => Array.from({ length: col }).map(_ => ({ ...block })))
-  const [gameState, setGameState] = useState(GameState.PRE)
+  const [gameState, setGameState] = useState(state)
   const [mineSweeper, setMineSweeper] = useState<MineSweeperType>(init)
   const [flagCount, setFlagCount] = useState(0)
 
-  return { gameState, setGameState, mineSweeper, setMineSweeper, flagCount, setFlagCount }
+  useEffect(() => {
+    if (gameState !== GameState.PRE)
+      return
+    const [row, col] = gameLevel.size
+    const init = Array.from({ length: row }).map(_ => Array.from({ length: col }).map(_ => ({ ...block })))
+    setMineSweeper(init)
+  }, [gameLevel, gameState])
+
+  return { gameState, setGameState, mineSweeper, setMineSweeper, flagCount, setFlagCount, gameLevel, setGameLevel }
 }
 
 export default useMineSweeper

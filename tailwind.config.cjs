@@ -8,4 +8,5 @@ module.exports = {
     extend: {},
   },
   plugins: [],
+  safelist: ['grid-cols-[repeat(9,1fr)]', 'grid-cols-[repeat(16,1fr)]'],
 }

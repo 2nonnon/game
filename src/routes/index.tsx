@@ -9,7 +9,7 @@ const router = createBrowserRouter([
     element: <HomePage />,
   },
   {
-    path: '/qrcode',
+    path: '/minesweeper',
     id: 'MineSweeper',
     element: <MineSweeper />,
   },
